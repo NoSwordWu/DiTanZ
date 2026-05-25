@@ -65,7 +65,7 @@ DiTanZ/
 ├── logo.png                    # Logo 图片
 ├── image/
 │   └── logo.png               # Logo 图片副本
-├── .netlify/
+├── netlify/
 │   └── functions/
 │       └── api.js             # Netlify Functions API 处理函数
 ├── netlify.toml               # Netlify 部署配置文件
