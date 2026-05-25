@@ -1,0 +1,8 @@
+{
+  "name": "zhejiang-carbon-map",
+  "version": "1.0.0",
+  "description": "浙建降碳节能经营作战图",
+  "dependencies": {
+    "@netlify/blobs": "^7.0.0"
+  }
+}

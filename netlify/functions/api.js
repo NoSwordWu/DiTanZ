@@ -14,8 +14,9 @@ async function handleOptions() {
   };
 }
 
-async function handleGetProjects() {
+async function handleGetProjects(event) {
   try {
+    connectLambda(event);
     const store = getStore({ name: STORE_NAME });
     const result = await store.get('projects');
     if (result) {
@@ -29,15 +30,16 @@ async function handleGetProjects() {
       };
     } else {
       return {
-        statusCode: 404,
+        statusCode: 200,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
         },
-        body: JSON.stringify({ error: 'No data found' }),
+        body: JSON.stringify({ projects: [], cities: {} }),
       };
     }
   } catch (error) {
+    console.error('Error getting projects:', error);
     return {
       statusCode: 500,
       headers: {
@@ -51,6 +53,7 @@ async function handleGetProjects() {
 
 async function handleSaveProjects(event) {
   try {
+    connectLambda(event);
     const body = JSON.parse(event.body);
     const store = getStore({ name: STORE_NAME });
     await store.set('projects', JSON.stringify(body));
@@ -63,6 +66,7 @@ async function handleSaveProjects(event) {
       body: JSON.stringify({ success: true, message: 'Data saved successfully' }),
     };
   } catch (error) {
+    console.error('Error saving projects:', error);
     return {
       statusCode: 500,
       headers: {
@@ -74,8 +78,9 @@ async function handleSaveProjects(event) {
   }
 }
 
-async function handleDeleteProjects() {
+async function handleDeleteProjects(event) {
   try {
+    connectLambda(event);
     const store = getStore({ name: STORE_NAME });
     await store.delete('projects');
     return {
@@ -87,6 +92,7 @@ async function handleDeleteProjects() {
       body: JSON.stringify({ success: true, message: 'Data deleted successfully' }),
     };
   } catch (error) {
+    console.error('Error deleting projects:', error);
     return {
       statusCode: 500,
       headers: {
@@ -99,9 +105,9 @@ async function handleDeleteProjects() {
 }
 
 export async function handler(event) {
-  connectLambda(event);
-  
   const { httpMethod, path } = event;
+
+  console.log(`Received request: ${httpMethod} ${path}`);
 
   if (httpMethod === 'OPTIONS') {
     return handleOptions();
@@ -110,14 +116,16 @@ export async function handler(event) {
   const pathParts = path.replace('/api/', '').split('/');
   const resource = pathParts[0];
 
+  console.log(`Resource: ${resource}`);
+
   if (resource === 'projects') {
     switch (httpMethod) {
       case 'GET':
-        return handleGetProjects();
+        return handleGetProjects(event);
       case 'POST':
         return handleSaveProjects(event);
       case 'DELETE':
-        return handleDeleteProjects();
+        return handleDeleteProjects(event);
       default:
         return {
           statusCode: 405,
