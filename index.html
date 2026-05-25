@@ -1,0 +1,1959 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浙江省地图 - 科技感</title>
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(180deg, #001525 0%, #002040 20%, #002545 50%, #001a35 80%, #001025 100%);
+            overflow: hidden;
+        }
+        #map { 
+            width: 100vw; 
+            height: 100vh; 
+            position: relative;
+            background: transparent;
+        }
+        #grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: 
+                linear-gradient(rgba(0, 150, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 150, 255, 0.02) 1px, transparent 1px);
+            background-size: 60px 60px;
+            z-index: 1000;
+        }
+        #glow-effect {
+            position: absolute;
+            bottom: 5%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 100px;
+            background: radial-gradient(ellipse at center, rgba(0, 200, 255, 0.4) 0%, rgba(0, 150, 255, 0.2) 40%, transparent 70%);
+            pointer-events: none;
+            z-index: 999;
+            animation: glowPulse 3s ease-in-out infinite;
+        }
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.6; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.1); }
+        }
+        .label-tooltip {
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+            font-size: 11px !important;
+            font-weight: normal !important;
+            color: #66ccff !important;
+            text-shadow: 0 0 8px rgba(0, 150, 255, 0.8) !important;
+            box-shadow: none !important;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .label-tooltip::before {
+            display: none !important;
+        }
+        .leaflet-tooltip-pane .leaflet-tooltip {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        .leaflet-overlay-pane path {
+            filter: drop-shadow(0 0 3px rgba(0, 150, 255, 0.2));
+        }
+        .city-label {
+            background: transparent;
+            border: none;
+            padding: 0;
+            font-size: 13px;
+            font-weight: bold;
+            color: #00ccff;
+            text-shadow: 0 0 12px rgba(0, 200, 255, 1), 0 0 25px rgba(0, 150, 255, 0.6);
+            box-shadow: none;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .city-label::before {
+            display: none;
+        }
+        .city-marker {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(0, 200, 255, 0.9);
+            box-shadow: 0 0 8px rgba(0, 200, 255, 0.8);
+        }
+        .city-project-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            min-height: 22px;
+            background: radial-gradient(circle at 30% 30%, rgba(100, 220, 255, 0.95), rgba(0, 120, 200, 0.85));
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 2px;
+            border: 2px solid rgba(100, 220, 255, 0.7);
+            box-shadow: 0 0 12px rgba(0, 180, 255, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+            animation: badgePulse 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes badgePulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.15); opacity: 0.85; }
+        }
+        .district-project-marker {
+            position: relative;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .district-project-badge {
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            min-height: 22px;
+            background: radial-gradient(circle at 30% 30%, rgba(100, 220, 255, 0.9), rgba(0, 100, 180, 0.75));
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(100, 220, 255, 0.6);
+            box-shadow: 0 0 10px rgba(0, 160, 255, 0.5), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+            animation: badgePulse 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        .project-tooltip {
+            background: rgba(0, 15, 30, 0.98) !important;
+            border: 8px solid rgba(0, 200, 255, 1) !important;
+            border-radius: 12px !important;
+            padding: 14px 16px !important;
+            font-size: 13px !important;
+            color: #cceeff !important;
+            box-shadow: 0 0 0 4px rgba(0, 200, 255, 0.8), 0 0 4px 8px rgba(0, 150, 255, 0.6), 0 0 25px rgba(0, 200, 255, 0.7), 0 0 50px rgba(0, 150, 255, 0.4) !important;
+            max-width: 220px !important;
+            line-height: 1.6 !important;
+            backdrop-filter: blur(8px) !important;
+            outline: 3px solid rgba(0, 200, 255, 0.7) !important;
+        }
+        .project-tooltip::before {
+            display: none !important;
+        }
+        .project-tooltip div {
+            margin: 4px 0 !important;
+        }
+        .city-project-badge:hover {
+            transform: scale(1.2) !important;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.8) !important;
+        }
+        .district-project-badge:hover {
+            transform: scale(1.2) !important;
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.8) !important;
+        }
+        .legend-panel {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(0, 20, 40, 0.85);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+        .legend-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #00ccff;
+            margin-bottom: 10px;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #aaddff;
+        }
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 10px;
+            box-shadow: 0 0 8px currentColor;
+        }
+        .legend-color.yellow {
+            background: #ffcc00;
+            color: rgba(255, 200, 0, 0.8);
+        }
+        .legend-color.blue {
+            background: #00aaff;
+            color: rgba(0, 170, 255, 0.8);
+        }
+        .legend-color.green {
+            background: #00ff88;
+            color: rgba(0, 255, 136, 0.8);
+        }
+        .legend-text {
+            text-shadow: 0 0 5px rgba(0, 200, 255, 0.5);
+        }
+        .legend-panel {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .legend-panel:hover {
+            border-color: rgba(0, 200, 255, 0.6);
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.3);
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 10, 20, 0.85);
+            backdrop-filter: blur(5px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal-container {
+            background: rgba(0, 20, 40, 0.95);
+            border: 1px solid rgba(0, 150, 255, 0.4);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow: hidden;
+            box-shadow: 0 0 40px rgba(0, 200, 255, 0.2);
+        }
+        .modal-container.large {
+            max-width: 1000px;
+            width: 95%;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+            background: rgba(0, 30, 60, 0.8);
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ccff;
+            text-shadow: 0 0 10px rgba(0, 200, 255, 0.8);
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border: none;
+            background: rgba(0, 150, 255, 0.2);
+            color: #00ccff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        .modal-close:hover {
+            background: rgba(255, 100, 100, 0.3);
+            color: #ff6666;
+        }
+        .modal-content {
+            padding: 20px;
+            max-height: calc(85vh - 140px);
+            overflow-y: auto;
+        }
+        .btn-add {
+            background: linear-gradient(135deg, rgba(0, 150, 255, 0.3), rgba(0, 100, 200, 0.3));
+            border: 1px solid rgba(0, 150, 255, 0.5);
+            color: #00ccff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            margin-bottom: 15px;
+        }
+        .btn-add:hover {
+            background: linear-gradient(135deg, rgba(0, 150, 255, 0.5), rgba(0, 100, 200, 0.5));
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
+        }
+        .filter-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .filter-label {
+            color: #00ccff;
+            font-size: 13px;
+        }
+        .filter-select {
+            width: auto;
+            min-width: 120px;
+        }
+        .btn-reset {
+            background: rgba(100, 100, 150, 0.3);
+            border: 1px solid rgba(100, 150, 200, 0.3);
+            color: #aaddff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .btn-reset:hover {
+            background: rgba(100, 150, 200, 0.5);
+        }
+        .project-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .project-table th,
+        .project-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(0, 150, 255, 0.2);
+        }
+        .project-table th {
+            color: #00ccff;
+            font-weight: bold;
+            background: rgba(0, 30, 60, 0.5);
+        }
+        .project-table td {
+            color: #ffffff;
+        }
+        .project-table tbody tr:hover {
+            background: rgba(0, 100, 150, 0.2);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-badge.yellow {
+            background: rgba(255, 200, 0, 0.2);
+            color: #ffcc00;
+        }
+        .status-badge.blue {
+            background: rgba(0, 170, 255, 0.2);
+            color: #00aaff;
+        }
+        .status-badge.green {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+        .btn-edit,
+        .btn-delete {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            margin-right: 5px;
+        }
+        .btn-edit {
+            background: rgba(0, 150, 255, 0.3);
+            color: #00ccff;
+        }
+        .btn-edit:hover {
+            background: rgba(0, 150, 255, 0.5);
+        }
+        .btn-delete {
+            background: rgba(255, 100, 100, 0.3);
+            color: #ff6666;
+        }
+        .btn-delete:hover {
+            background: rgba(255, 100, 100, 0.5);
+        }
+        .form-modal {
+            display: none;
+        }
+        .form-modal.show {
+            display: flex;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-label {
+            display: block;
+            color: #00ccff;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 30, 60, 0.8);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            border-radius: 6px;
+            color: #aaddff;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .form-input:focus,
+        .form-select:focus {
+            outline: none;
+            border-color: rgba(0, 200, 255, 0.6);
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.3);
+        }
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        .btn-save {
+            background: linear-gradient(135deg, rgba(0, 150, 255, 0.5), rgba(0, 100, 200, 0.5));
+            border: 1px solid rgba(0, 150, 255, 0.6);
+            color: #00ccff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-save:hover {
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
+        }
+        .btn-cancel {
+            background: rgba(100, 100, 150, 0.3);
+            border: 1px solid rgba(100, 150, 200, 0.3);
+            color: #aaddff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-cancel:hover {
+            background: rgba(100, 150, 200, 0.5);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .pagination button {
+            background: rgba(0, 150, 255, 0.2);
+            border: 1px solid rgba(0, 150, 255, 0.4);
+            color: #00ccff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        .pagination button:hover:not(:disabled) {
+            background: rgba(0, 150, 255, 0.4);
+        }
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .pagination .page-info {
+            color: #aaddff;
+            font-size: 13px;
+        }
+        .pagination select {
+            background: rgba(0, 30, 60, 0.8);
+            border: 1px solid rgba(0, 150, 255, 0.3);
+            color: #aaddff;
+            padding: 6px 10px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .import-export-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .btn-import,
+        .btn-export {
+            background: linear-gradient(135deg, rgba(0, 150, 255, 0.3), rgba(0, 100, 200, 0.3));
+            border: 1px solid rgba(0, 150, 255, 0.5);
+            color: #00ccff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-import:hover,
+        .btn-export:hover {
+            background: linear-gradient(135deg, rgba(0, 150, 255, 0.5), rgba(0, 100, 200, 0.5));
+            box-shadow: 0 0 15px rgba(0, 200, 255, 0.4);
+        }
+        #importFile {
+            display: none;
+        }
+        .confirm-modal {
+            display: none;
+        }
+        .confirm-modal.show {
+            display: flex;
+        }
+        .confirm-content {
+            text-align: center;
+            padding: 30px;
+        }
+        .confirm-message {
+            color: #aaddff;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .logo-container {
+            position: absolute;
+            left: 30px;
+            top: calc(50% - 260px);
+            z-index: 1001;
+        }
+        .logo-container img {
+            width: 32px;
+            height: auto;
+        }
+        .vertical-title {
+            position: absolute;
+            left: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            writing-mode: vertical-rl;
+            text-orientation: upright;
+            font-size: 24px;
+            font-weight: bold;
+            color: #00d4ff;
+            text-shadow: 0 0 15px rgba(0, 200, 255, 0.8), 0 0 30px rgba(0, 150, 255, 0.5);
+            letter-spacing: 12px;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            z-index: 1000;
+            user-select: none;
+            height: 420px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .stats-header {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 1001;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, rgba(0, 30, 60, 0.9) 0%, rgba(0, 20, 45, 0.95) 100%);
+            border: 2px solid rgba(0, 150, 255, 0.4);
+            border-radius: 12px;
+            padding: 10px 18px;
+            min-width: 80px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 150, 255, 0.3), inset 0 0 30px rgba(0, 100, 180, 0.1);
+            transition: all 0.3s ease;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--glow-color, #00d4ff), transparent);
+            animation: glowLine 2s ease-in-out infinite;
+        }
+        @keyframes glowLine {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        .stat-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 30px rgba(0, 200, 255, 0.5), inset 0 0 40px rgba(0, 100, 180, 0.15);
+            border-color: rgba(0, 200, 255, 0.6);
+        }
+        .stat-card .stat-label {
+            font-size: 12px;
+            color: #88ccff;
+            margin-bottom: 5px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+        .stat-card .stat-value {
+            font-size: 21px;
+            font-weight: bold;
+            color: #00d4ff;
+            text-shadow: 0 0 20px rgba(0, 200, 255, 0.8), 0 0 40px rgba(0, 150, 255, 0.5);
+            line-height: 1;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        .stat-card.total { --glow-color: #00d4ff; }
+        .stat-card.total .stat-value { color: #00d4ff; }
+        .stat-card.cooperation { --glow-color: #ffcc00; }
+        .stat-card.cooperation .stat-value { color: #ffcc00; text-shadow: 0 0 20px rgba(255, 200, 0, 0.8), 0 0 40px rgba(255, 150, 0, 0.5); }
+        .stat-card.intent { --glow-color: #00aaff; }
+        .stat-card.intent .stat-value { color: #00aaff; text-shadow: 0 0 20px rgba(0, 170, 255, 0.8), 0 0 40px rgba(0, 120, 255, 0.5); }
+        .stat-card.contract { --glow-color: #00ff88; }
+        .stat-card.contract .stat-value { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.8), 0 0 40px rgba(0, 200, 100, 0.5); }
+        .frame-border {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1500;
+        }
+        .frame-border::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border: 3px solid rgba(0, 180, 255, 0.6);
+            box-shadow: inset 0 0 30px rgba(0, 150, 255, 0.3), 0 0 20px rgba(0, 150, 255, 0.4);
+        }
+        .frame-corner {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+        }
+        .frame-corner::before,
+        .frame-corner::after {
+            content: '';
+            position: absolute;
+            background: linear-gradient(90deg, #00d4ff, transparent);
+            animation: cornerGlow 2s ease-in-out infinite;
+        }
+        .frame-corner.top-left {
+            top: 0;
+            left: 0;
+        }
+        .frame-corner.top-left::before {
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+        }
+        .frame-corner.top-left::after {
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(180deg, #00d4ff, transparent);
+        }
+        .frame-corner.top-right {
+            top: 0;
+            right: 0;
+        }
+        .frame-corner.top-right::before {
+            top: 0;
+            right: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(270deg, #00d4ff, transparent);
+        }
+        .frame-corner.top-right::after {
+            top: 0;
+            right: 0;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(180deg, #00d4ff, transparent);
+        }
+        .frame-corner.bottom-left {
+            bottom: 0;
+            left: 0;
+        }
+        .frame-corner.bottom-left::before {
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+        }
+        .frame-corner.bottom-left::after {
+            bottom: 0;
+            left: 0;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(0deg, #00d4ff, transparent);
+        }
+        .frame-corner.bottom-right {
+            bottom: 0;
+            right: 0;
+        }
+        .frame-corner.bottom-right::before {
+            bottom: 0;
+            right: 0;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(270deg, #00d4ff, transparent);
+        }
+        .frame-corner.bottom-right::after {
+            bottom: 0;
+            right: 0;
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(0deg, #00d4ff, transparent);
+        }
+        @keyframes cornerGlow {
+            0%, 100% { opacity: 0.6; filter: blur(1px); }
+            50% { opacity: 1; filter: blur(0px); }
+        }
+        .frame-decoration {
+            position: absolute;
+            background: rgba(0, 150, 255, 0.15);
+            border: 1px solid rgba(0, 180, 255, 0.3);
+        }
+        .frame-decoration.top-center {
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 3px;
+            border-radius: 2px;
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+        .frame-decoration.bottom-center {
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 3px;
+            border-radius: 2px;
+            animation: pulseGlow 3s ease-in-out infinite;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(0, 200, 255, 0.3); }
+            50% { box-shadow: 0 0 25px rgba(0, 200, 255, 0.8); }
+        }
+        .frame-scanline {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 150, 255, 0.03) 2px,
+                rgba(0, 150, 255, 0.03) 4px
+            );
+            pointer-events: none;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="frame-border">
+        <div class="frame-corner top-left"></div>
+        <div class="frame-corner top-right"></div>
+        <div class="frame-corner bottom-left"></div>
+        <div class="frame-corner bottom-right"></div>
+        <div class="frame-decoration top-center"></div>
+        <div class="frame-decoration bottom-center"></div>
+        <div class="frame-scanline"></div>
+    </div>
+    <div class="logo-container">
+        <img src="image/logo.png" alt="logo">
+    </div>
+    <div class="vertical-title">浙建降碳节能经营作战图</div>
+    <div class="stats-header">
+        <div class="stat-card total">
+            <div class="stat-label">项目总数</div>
+            <div class="stat-value" id="statTotal">0</div>
+        </div>
+        <div class="stat-card cooperation">
+            <div class="stat-label">合作对接</div>
+            <div class="stat-value" id="statCooperation">0</div>
+        </div>
+        <div class="stat-card intent">
+            <div class="stat-label">意向签订</div>
+            <div class="stat-value" id="statIntent">0</div>
+        </div>
+        <div class="stat-card contract">
+            <div class="stat-label">正式合约</div>
+            <div class="stat-value" id="statContract">0</div>
+        </div>
+    </div>
+    <div id="map">
+        <div id="grid-overlay"></div>
+        <div id="glow-effect"></div>
+    </div>
+    <div class="legend-panel" id="legendPanel">
+        <div class="legend-title">项目状态</div>
+        <div class="legend-item">
+            <div class="legend-color yellow"></div>
+            <span class="legend-text">合作对接</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color blue"></div>
+            <span class="legend-text">意向签订</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color green"></div>
+            <span class="legend-text">正式合约</span>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="projectModal">
+        <div class="modal-container large">
+            <div class="modal-header">
+                <div class="modal-title">项目维护台账</div>
+                <button class="modal-close" id="closeModal">×</button>
+            </div>
+            <div class="modal-content">
+                <button class="btn-add" id="addProjectBtn">新增项目</button>
+                <div class="import-export-bar">
+                    <input type="file" id="importFile" accept=".csv">
+                    <button class="btn-import" id="importBtn">导入CSV</button>
+                    <button class="btn-export" id="exportBtn">导出CSV</button>
+                </div>
+                <div class="filter-bar">
+                    <div class="filter-item">
+                        <label class="filter-label">市</label>
+                        <select class="form-select filter-select" id="filterCity">
+                            <option value="">全部市</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label class="filter-label">区县</label>
+                        <select class="form-select filter-select" id="filterDistrict">
+                            <option value="">全部区县</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label class="filter-label">项目状态</label>
+                        <select class="form-select filter-select" id="filterStatus">
+                            <option value="">全部状态</option>
+                            <option value="合作对接">合作对接</option>
+                            <option value="意向签订">意向签订</option>
+                            <option value="正式合约">正式合约</option>
+                        </select>
+                    </div>
+                    <button class="btn-reset" id="resetFilter">重置筛选</button>
+                </div>
+                <table class="project-table" id="projectTable">
+                    <thead>
+                        <tr>
+                            <th>项目名称</th>
+                            <th>市</th>
+                            <th>区县</th>
+                            <th>项目状态</th>
+                            <th>创建时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="projectTableBody"></tbody>
+                </table>
+                <div class="pagination">
+                    <button id="prevPage" disabled>上一页</button>
+                    <span class="page-info" id="pageInfo">第 1 页 / 共 1 页</span>
+                    <button id="nextPage" disabled>下一页</button>
+                    <select id="pageSizeSelect">
+                        <option value="5">每页5条</option>
+                        <option value="10">每页10条</option>
+                        <option value="20">每页20条</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay form-modal" id="formModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title" id="formTitle">新增项目</div>
+                <button class="modal-close" id="closeFormModal">×</button>
+            </div>
+            <div class="modal-content">
+                <form id="projectForm">
+                    <input type="hidden" id="formId">
+                    <div class="form-group">
+                        <label class="form-label">项目名称</label>
+                        <input type="text" class="form-input" id="formName" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">市</label>
+                        <select class="form-select" id="formCity" required>
+                            <option value="">请选择市</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">区县</label>
+                        <select class="form-select" id="formDistrict" required>
+                            <option value="">请先选择市</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">项目状态</label>
+                        <select class="form-select" id="formStatus" required>
+                            <option value="">请选择状态</option>
+                            <option value="合作对接">合作对接</option>
+                            <option value="意向签订">意向签订</option>
+                            <option value="正式合约">正式合约</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" id="cancelForm">取消</button>
+                        <button type="submit" class="btn-save">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay confirm-modal" id="confirmModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">确认删除</div>
+                <button class="modal-close" id="closeConfirmModal">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="confirm-content">
+                    <div class="confirm-message">确定要删除该项目吗？</div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" id="cancelDelete">取消</button>
+                        <button type="button" class="btn-delete" id="confirmDelete">确认删除</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay confirm-modal" id="authModal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">身份验证</div>
+                <button class="modal-close" id="closeAuthModal">×</button>
+            </div>
+            <div class="modal-content">
+                <div class="confirm-content">
+                    <div class="confirm-message" style="margin-bottom: 20px;">请输入访问指令：</div>
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <div style="position: relative;">
+                            <input type="password" class="form-input" id="authInput" placeholder="请输入指令" style="padding-right: 45px;">
+                            <button type="button" id="toggleAuthVisibility" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #00ccff; cursor: pointer; font-size: 14px;">👁</button>
+                        </div>
+                    </div>
+                    <div id="authError" style="color: #ff6666; font-size: 12px; margin-bottom: 15px; display: none;">指令错误，请重试！</div>
+                    <div class="form-actions">
+                        <button type="button" class="btn-cancel" id="cancelAuth">取消</button>
+                        <button type="button" class="btn-save" id="confirmAuth">确认</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var map = L.map('map', {
+            center: [29.15, 120.1],
+            zoom: 8,
+            zoomControl: false,
+            attributionControl: false,
+            zoomDelta: 0.5,
+            zoomSnap: 0.5
+        });
+        
+        var districtLayer;
+        var projectsData = [];
+        var citiesData = {};
+        var deleteProjectId = null;
+        var cityMarkers = [];
+        var districtProjectMarkers = [];
+        var currentPage = 1;
+        var pageSize = 5;
+        
+        var useNetlifyBlobs = false;
+        
+        initProjectData();
+        
+        async function initProjectData() {
+            try {
+                const response = await fetch('/api/projects');
+                if (response.ok) {
+                    const data = await response.json();
+                    projectsData = data.projects || [];
+                    citiesData = data.cities || {};
+                    useNetlifyBlobs = true;
+                    console.log('Loaded data from Netlify Blobs');
+                } else {
+                    throw new Error('Netlify Blobs not available');
+                }
+            } catch (error) {
+                console.log('Falling back to localStorage:', error.message);
+                useNetlifyBlobs = false;
+                var saved = localStorage.getItem('projectsData');
+                if (saved) {
+                    var data = JSON.parse(saved);
+                    projectsData = data.projects || [];
+                    citiesData = data.cities || {};
+                } else {
+                    const response = await fetch('projects.json');
+                    const data = await response.json();
+                    projectsData = data.projects;
+                    citiesData = data.cities;
+                    await saveProjects();
+                }
+            }
+            renderCityMarkers();
+            renderDistrictProjectMarkers();
+            updateHeaderStats();
+        }
+        
+        fetch('Zhejiang.geojson')
+            .then(response => response.json())
+            .then(data => {
+                districtLayer = L.geoJSON(data, {
+                    style: function(feature) {
+                        var fillColors = [
+                            'rgba(0, 60, 120, 0.15)',
+                            'rgba(0, 80, 150, 0.18)',
+                            'rgba(0, 70, 130, 0.16)',
+                            'rgba(0, 90, 160, 0.19)',
+                            'rgba(0, 65, 125, 0.17)'
+                        ];
+                        var randomIndex = Math.floor(Math.random() * fillColors.length);
+                        return {
+                            color: 'rgba(0, 153, 255, 0.7)',
+                            weight: 1.2,
+                            fillColor: fillColors[randomIndex],
+                            fillOpacity: 1,
+                            opacity: 0.7,
+                            stroke: true
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bringToFront();
+                        if (feature.properties && feature.properties.name) {
+                            layer.bindTooltip(feature.properties.name, {
+                                permanent: true,
+                                direction: 'center',
+                                className: 'label-tooltip',
+                                offset: [0, 0]
+                            });
+                        }
+                        layer.on('mouseover', function(e) {
+                            layer.setStyle({
+                                fillOpacity: 1,
+                                fillColor: 'rgba(0, 100, 180, 0.3)',
+                                color: 'rgba(0, 212, 255, 0.9)'
+                            });
+                        });
+                        layer.on('mouseout', function(e) {
+                            var fillColors = [
+                                'rgba(0, 60, 120, 0.15)',
+                                'rgba(0, 80, 150, 0.18)',
+                                'rgba(0, 70, 130, 0.16)',
+                                'rgba(0, 90, 160, 0.19)',
+                                'rgba(0, 65, 125, 0.17)'
+                            ];
+                            var randomIndex = Math.floor(Math.random() * fillColors.length);
+                            layer.setStyle({
+                                fillOpacity: 1,
+                                fillColor: fillColors[randomIndex],
+                                color: 'rgba(0, 153, 255, 0.7)'
+                            });
+                        });
+                    }
+                }).addTo(map);
+                
+                districtLayer.eachLayer(function(layer) {
+                    layer.closeTooltip();
+                });
+                
+                map.on('zoomend', function() {
+                    var currentZoom = map.getZoom();
+                    districtLayer.eachLayer(function(layer) {
+                        if (currentZoom >= 9) {
+                            layer.openTooltip();
+                        } else {
+                            layer.closeTooltip();
+                        }
+                    });
+                });
+            })
+            .catch(error => console.error('加载GeoJSON失败:', error));
+
+        fetch('Zhejiang_shi.geojson')
+            .then(response => response.json())
+            .then(data => {
+                var cityBoundaryLayer = L.geoJSON(data, {
+                    style: function(feature) {
+                        if (feature.geometry.type === 'MultiLineString') {
+                            return {
+                                color: '#00d4ff',
+                                weight: 4,
+                                opacity: 1,
+                                dashArray: '5, 10'
+                            };
+                        } else {
+                            return {
+                                color: '#00d4ff',
+                                weight: 3,
+                                opacity: 1,
+                                fillOpacity: 0,
+                                fillColor: 'transparent'
+                            };
+                        }
+                    }
+                }).addTo(map);
+            })
+            .catch(error => console.error('加载市级边界失败:', error));
+
+        function getProjectStats(filteredProjects) {
+            var stats = {};
+            filteredProjects.forEach(function(project) {
+                var city = project.city;
+                var district = project.district;
+                var status = project.status;
+                
+                if (!stats[city]) {
+                    stats[city] = { total: 0, districts: {}, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0 } };
+                }
+                stats[city].total++;
+                stats[city].status[status]++;
+                
+                if (!stats[city].districts[district]) {
+                    stats[city].districts[district] = { total: 0, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0 } };
+                }
+                stats[city].districts[district].total++;
+                stats[city].districts[district].status[status]++;
+            });
+            return stats;
+        }
+        
+        function updateHeaderStats() {
+            var total = projectsData.length;
+            var cooperation = 0;
+            var intent = 0;
+            var contract = 0;
+            
+            projectsData.forEach(function(project) {
+                switch(project.status) {
+                    case '合作对接': cooperation++; break;
+                    case '意向签订': intent++; break;
+                    case '正式合约': contract++; break;
+                }
+            });
+            
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statCooperation').textContent = cooperation;
+            document.getElementById('statIntent').textContent = intent;
+            document.getElementById('statContract').textContent = contract;
+        }
+
+        function renderCityMarkers() {
+            cityMarkers.forEach(function(marker) {
+                map.removeLayer(marker);
+            });
+            cityMarkers = [];
+            
+            var stats = getProjectStats(projectsData);
+            
+            fetch('Zhejiang_cities.geojson')
+                .then(response => response.json())
+                .then(data => {
+                    data.features.forEach(function(feature) {
+                        var cityName = feature.properties.name;
+                        var latlng = L.latLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
+                        var cityStats = stats[cityName];
+                        var hasProjects = cityStats && cityStats.total > 0;
+                        
+                        var markerDiv = document.createElement('div');
+                        markerDiv.className = 'city-marker';
+                        
+                        if (hasProjects) {
+                            var badgeDiv = document.createElement('div');
+                            badgeDiv.className = 'city-project-badge';
+                            badgeDiv.textContent = cityStats.total;
+                            markerDiv.appendChild(badgeDiv);
+                        }
+                        
+                        var marker = L.marker(latlng, {
+                                icon: L.divIcon({
+                                    className: '',
+                                    html: markerDiv.outerHTML,
+                                    iconSize: [40, 40],
+                                    iconAnchor: [20, 20]
+                                })
+                            }).addTo(map);
+                            cityMarkers.push(marker);
+                            
+                            marker.setOpacity(map.getZoom() >= 9 ? 0 : 1);
+                            
+                            if (hasProjects) {
+                                var tooltipContent = `<div style="font-weight:bold;margin-bottom:5px;">${cityName}项目统计</div>
+                                <div style="color:#ffcc00;">合作对接: ${cityStats.status['合作对接']}</div>
+                                <div style="color:#00aaff;">意向签订: ${cityStats.status['意向签订']}</div>
+                                <div style="color:#00ff88;">正式合约: ${cityStats.status['正式合约']}</div>`;
+                                marker.bindTooltip(tooltipContent, {
+                                    permanent: false,
+                                    direction: 'top',
+                                    offset: [0, -5],
+                                    className: 'project-tooltip'
+                                });
+                            }
+                            
+                            marker.on('click', function() {
+                                map.setView(latlng, 10);
+                            });
+
+                        L.marker(latlng, {
+                            icon: L.divIcon({
+                                className: 'city-label',
+                                html: cityName,
+                                iconSize: [80, 20],
+                                iconAnchor: [40, -15]
+                            })
+                        }).addTo(map);
+                    });
+                })
+                .catch(error => console.error('加载市级数据失败:', error));
+        }
+
+        function renderDistrictProjectMarkers() {
+            districtProjectMarkers.forEach(function(marker) {
+                map.removeLayer(marker);
+            });
+            districtProjectMarkers = [];
+            
+            var stats = getProjectStats(projectsData);
+            
+            Object.keys(stats).forEach(function(city) {
+                var cityInfo = stats[city];
+                Object.keys(cityInfo.districts).forEach(function(district) {
+                    var districtStats = cityInfo.districts[district];
+                    if (districtStats.total > 0) {
+                        var center = getDistrictCenter(city, district);
+                        if (center) {
+                            var badgeHtml = `<div class="district-project-badge">${districtStats.total}</div>`;
+                            var marker = L.marker([center.lat, center.lng], {
+                                icon: L.divIcon({
+                                    className: 'district-project-marker',
+                                    html: badgeHtml,
+                                    iconSize: [40, 40],
+                                    iconAnchor: [20, 20]
+                                })
+                            }).addTo(map);
+                            districtProjectMarkers.push(marker);
+                            
+                            var tooltipContent = `<div style="font-weight:bold;margin-bottom:5px;">${city} - ${district}</div>
+                                <div style="color:#ffcc00;">合作对接: ${districtStats.status['合作对接']}</div>
+                                <div style="color:#00aaff;">意向签订: ${districtStats.status['意向签订']}</div>
+                                <div style="color:#00ff88;">正式合约: ${districtStats.status['正式合约']}</div>`;
+                            marker.bindTooltip(tooltipContent, {
+                                permanent: false,
+                                direction: 'top',
+                                className: 'project-tooltip'
+                            });
+                            
+                            marker.setOpacity(map.getZoom() >= 9 ? 1 : 0);
+                        }
+                    }
+                });
+            });
+            updateDistrictMarkerVisibility();
+        }
+
+        function getDistrictCenter(city, district) {
+            var centers = {
+                '杭州市': { '市本级': [30.27, 120.19], '上城区': [30.26, 120.19], '下城区': [30.28, 120.18], '西湖区': [30.27, 120.14], '拱墅区': [30.29, 120.17], '滨江区': [30.20, 120.15], '萧山区': [30.15, 120.27], '余杭区': [30.35, 120.09], '临平区': [30.34, 120.28], '钱塘区': [30.24, 120.35], '富阳区': [30.07, 119.97], '临安区': [30.23, 119.72], '桐庐县': [29.80, 119.65], '淳安县': [29.61, 119.06], '建德市': [29.49, 119.28] },
+                '宁波市': { '市本级': [29.87, 121.55], '海曙区': [29.87, 121.54], '江北区': [29.90, 121.55], '北仑区': [29.98, 121.80], '镇海区': [30.03, 121.70], '鄞州区': [29.83, 121.56], '奉化区': [29.66, 121.41], '象山县': [29.48, 121.88], '宁海县': [29.31, 121.42], '余姚市': [30.03, 121.13], '慈溪市': [30.18, 121.32] },
+                '温州市': { '市本级': [28.01, 120.65], '鹿城区': [28.01, 120.65], '龙湾区': [27.97, 120.75], '瓯海区': [27.95, 120.60], '洞头区': [27.83, 121.16], '永嘉县': [28.22, 120.62], '平阳县': [27.68, 120.51], '苍南县': [27.54, 120.36], '文成县': [27.78, 120.08], '泰顺县': [27.57, 119.78], '瑞安市': [27.78, 120.62], '乐清市': [28.14, 120.94], '龙港市': [27.56, 120.53] },
+                '嘉兴市': { '市本级': [30.75, 120.45], '南湖区': [30.75, 120.47], '秀洲区': [30.77, 120.41], '嘉善县': [30.84, 120.92], '海盐县': [30.53, 120.92], '海宁市': [30.53, 120.69], '平湖市': [30.71, 121.02], '桐乡市': [30.64, 120.55] },
+                '湖州市': { '市本级': [30.86, 120.08], '吴兴区': [30.86, 120.08], '南浔区': [30.83, 120.45], '德清县': [30.52, 120.08], '长兴县': [30.01, 119.90], '安吉县': [30.66, 119.68] },
+                '绍兴市': { '市本级': [30.01, 120.58], '越城区': [30.01, 120.58], '柯桥区': [30.00, 120.45], '上虞区': [29.99, 120.83], '新昌县': [29.49, 120.92], '诸暨市': [29.71, 120.24], '嵊州市': [29.61, 120.82] },
+                '金华市': { '市本级': [29.12, 119.64], '婺城区': [29.12, 119.64], '金东区': [29.11, 119.75], '武义县': [28.85, 119.83], '浦江县': [29.42, 119.98], '磐安县': [29.12, 120.46], '兰溪市': [29.29, 119.48], '义乌市': [29.32, 120.06], '东阳市': [29.29, 120.23], '永康市': [28.92, 120.03] },
+                '衢州市': { '市本级': [28.97, 118.87], '柯城区': [28.97, 118.87], '衢江区': [29.01, 118.95], '常山县': [28.90, 118.53], '开化县': [29.15, 118.38], '龙游县': [28.90, 119.16], '江山市': [28.74, 118.61] },
+                '舟山市': { '市本级': [30.02, 122.21], '定海区': [30.05, 122.12], '普陀区': [29.97, 122.30], '岱山县': [30.26, 122.20], '嵊泗县': [30.72, 122.45] },
+                '台州市': { '市本级': [28.66, 121.42], '椒江区': [28.66, 121.42], '黄岩区': [28.65, 121.27], '路桥区': [28.58, 121.43], '玉环市': [28.13, 121.23], '三门县': [29.11, 121.43], '天台县': [29.15, 121.04], '仙居县': [28.83, 120.73], '温岭市': [28.36, 121.36], '临海市': [28.80, 121.13] },
+                '丽水市': { '市本级': [28.45, 119.92], '莲都区': [28.45, 119.92], '青田县': [28.17, 120.28], '缙云县': [28.66, 120.01], '遂昌县': [28.52, 119.28], '松阳县': [28.48, 119.48], '云和县': [28.12, 119.56], '庆元县': [27.61, 119.06], '景宁畲族自治县': [27.95, 119.50], '龙泉市': [28.08, 119.13], '龙港市': [27.56, 120.53] }
+            };
+            return centers[city] && centers[city][district] ? { lat: centers[city][district][0], lng: centers[city][district][1] } : null;
+        }
+
+        function loadProjects() {
+            var saved = localStorage.getItem('projectsData');
+            if (saved) {
+                var data = JSON.parse(saved);
+                projectsData = data.projects || [];
+                citiesData = data.cities || {};
+                populateCitySelect();
+                populateCityFilter();
+                populateDistrictFilter();
+                renderProjectTable();
+            } else {
+                fetch('projects.json')
+                    .then(response => response.json())
+                    .then(data => {
+                        projectsData = data.projects;
+                        citiesData = data.cities;
+                        saveProjects();
+                        populateCitySelect();
+                        populateCityFilter();
+                        populateDistrictFilter();
+                        renderProjectTable();
+                    })
+                    .catch(error => console.error('加载项目数据失败:', error));
+            }
+        }
+
+        function refreshProjectMarkers() {
+            renderCityMarkers();
+            renderDistrictProjectMarkers();
+            updateDistrictMarkerVisibility();
+        }
+
+        map.on('zoomend', function() {
+            var currentZoom = map.getZoom();
+            districtProjectMarkers.forEach(function(marker) {
+                marker.setOpacity(currentZoom >= 9 ? 1 : 0);
+            });
+            cityMarkers.forEach(function(marker) {
+                if (currentZoom >= 9) {
+                    map.removeLayer(marker);
+                } else {
+                    map.addLayer(marker);
+                }
+            });
+        });
+
+        function updateDistrictMarkerVisibility() {
+            var currentZoom = map.getZoom();
+            districtProjectMarkers.forEach(function(marker) {
+                marker.setOpacity(currentZoom >= 9 ? 1 : 0);
+            });
+            cityMarkers.forEach(function(marker) {
+                if (currentZoom >= 9) {
+                    map.removeLayer(marker);
+                } else {
+                    map.addLayer(marker);
+                }
+            });
+            if (!autoRotationInterval) {
+                collectAllMarkers();
+            }
+        }
+
+        function populateCityFilter() {
+            var citySelect = document.getElementById('filterCity');
+            citySelect.innerHTML = '<option value="">全部市</option>';
+            Object.keys(citiesData).forEach(function(city) {
+                var option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        function populateDistrictFilter(city) {
+            var districtSelect = document.getElementById('filterDistrict');
+            districtSelect.innerHTML = '<option value="">全部区县</option>';
+            if (city && citiesData[city]) {
+                citiesData[city].forEach(function(district) {
+                    var option = document.createElement('option');
+                    option.value = district;
+                    option.textContent = district;
+                    districtSelect.appendChild(option);
+                });
+            } else {
+                var allDistricts = new Set();
+                Object.values(citiesData).forEach(function(districts) {
+                    districts.forEach(function(district) {
+                        allDistricts.add(district);
+                    });
+                });
+                Array.from(allDistricts).sort().forEach(function(district) {
+                    var option = document.createElement('option');
+                    option.value = district;
+                    option.textContent = district;
+                    districtSelect.appendChild(option);
+                });
+            }
+        }
+
+        var autoRotationInterval = null;
+        var currentRotationIndex = 0;
+        var inactivityTimeout = null;
+        var allMarkers = [];
+
+        function collectAllMarkers() {
+            allMarkers = [];
+            cityMarkers.forEach(function(marker) {
+                if (map.hasLayer(marker)) {
+                    allMarkers.push(marker);
+                }
+            });
+            districtProjectMarkers.forEach(function(marker) {
+                if (map.hasLayer(marker)) {
+                    var opacity = marker.getOpacity ? marker.getOpacity() : (marker.options && marker.options.opacity !== undefined ? marker.options.opacity : 1);
+                    if (opacity > 0) {
+                        allMarkers.push(marker);
+                    }
+                }
+            });
+        }
+
+        function closeAllTooltips() {
+            allMarkers.forEach(function(marker) {
+                if (marker.closeTooltip) {
+                    marker.closeTooltip();
+                }
+            });
+        }
+
+        function startAutoRotation() {
+            collectAllMarkers();
+            if (allMarkers.length === 0) return;
+            
+            currentRotationIndex = 0;
+            closeAllTooltips();
+            
+            if (autoRotationInterval) {
+                clearInterval(autoRotationInterval);
+            }
+            
+            function rotateNext() {
+                closeAllTooltips();
+                if (currentRotationIndex >= allMarkers.length) {
+                    currentRotationIndex = 0;
+                }
+                var marker = allMarkers[currentRotationIndex];
+                if (marker && marker.openTooltip) {
+                    marker.openTooltip();
+                }
+                currentRotationIndex++;
+            }
+            
+            rotateNext();
+            autoRotationInterval = setInterval(rotateNext, 4000);
+        }
+
+        function stopAutoRotation() {
+            if (autoRotationInterval) {
+                clearInterval(autoRotationInterval);
+                autoRotationInterval = null;
+            }
+        }
+
+        function resetInactivityTimer() {
+            if (inactivityTimeout) {
+                clearTimeout(inactivityTimeout);
+            }
+            stopAutoRotation();
+            inactivityTimeout = setTimeout(startAutoRotation, 10000);
+        }
+
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('mousedown', resetInactivityTimer);
+        document.addEventListener('keydown', resetInactivityTimer);
+        document.addEventListener('wheel', resetInactivityTimer);
+        map.on('move', resetInactivityTimer);
+        map.on('zoom', resetInactivityTimer);
+        map.on('click', resetInactivityTimer);
+
+        setTimeout(resetInactivityTimer, 500);
+
+        function populateCitySelect() {
+            var citySelect = document.getElementById('formCity');
+            citySelect.innerHTML = '<option value="">请选择市</option>';
+            Object.keys(citiesData).forEach(function(city) {
+                var option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        function populateDistrictSelect(city) {
+            var districtSelect = document.getElementById('formDistrict');
+            districtSelect.innerHTML = '<option value="">请选择区县</option>';
+            if (city && citiesData[city]) {
+                citiesData[city].forEach(function(district) {
+                    var option = document.createElement('option');
+                    option.value = district;
+                    option.textContent = district;
+                    districtSelect.appendChild(option);
+                });
+            }
+        }
+
+        function renderProjectTable() {
+            var tbody = document.getElementById('projectTableBody');
+            tbody.innerHTML = '';
+            
+            var filterCity = document.getElementById('filterCity').value;
+            var filterDistrict = document.getElementById('filterDistrict').value;
+            var filterStatus = document.getElementById('filterStatus').value;
+            
+            var filteredProjects = projectsData.filter(function(project) {
+                var matchCity = !filterCity || project.city === filterCity;
+                var matchDistrict = !filterDistrict || project.district === filterDistrict;
+                var matchStatus = !filterStatus || project.status === filterStatus;
+                return matchCity && matchDistrict && matchStatus;
+            });
+            
+            var totalPages = Math.ceil(filteredProjects.length / pageSize);
+            var startIndex = (currentPage - 1) * pageSize;
+            var endIndex = startIndex + pageSize;
+            var paginatedProjects = filteredProjects.slice(startIndex, endIndex);
+            
+            paginatedProjects.forEach(function(project) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${project.name}</td>
+                    <td>${project.city}</td>
+                    <td>${project.district}</td>
+                    <td><span class="status-badge ${getStatusClass(project.status)}">${project.status}</span></td>
+                    <td>${project.createTime}</td>
+                    <td>
+                        <button class="btn-edit" onclick="editProject(${project.id})">编辑</button>
+                        <button class="btn-delete" onclick="showDeleteConfirm(${project.id})">删除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            updatePagination(totalPages);
+        }
+        
+        function updatePagination(totalPages) {
+            document.getElementById('pageInfo').textContent = '第 ' + currentPage + ' 页 / 共 ' + totalPages + ' 页';
+            document.getElementById('prevPage').disabled = currentPage <= 1;
+            document.getElementById('nextPage').disabled = currentPage >= totalPages;
+        }
+        
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderProjectTable();
+            }
+        }
+        
+        function nextPage() {
+            var filterCity = document.getElementById('filterCity').value;
+            var filterDistrict = document.getElementById('filterDistrict').value;
+            var filterStatus = document.getElementById('filterStatus').value;
+            
+            var filteredProjects = projectsData.filter(function(project) {
+                var matchCity = !filterCity || project.city === filterCity;
+                var matchDistrict = !filterDistrict || project.district === filterDistrict;
+                var matchStatus = !filterStatus || project.status === filterStatus;
+                return matchCity && matchDistrict && matchStatus;
+            });
+            
+            var totalPages = Math.ceil(filteredProjects.length / pageSize);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderProjectTable();
+            }
+        }
+        
+        function changePageSize() {
+            pageSize = parseInt(document.getElementById('pageSizeSelect').value);
+            currentPage = 1;
+            renderProjectTable();
+        }
+
+        function applyFilter() {
+            renderProjectTable();
+        }
+
+        function resetFilter() {
+            document.getElementById('filterCity').value = '';
+            document.getElementById('filterDistrict').value = '';
+            document.getElementById('filterStatus').value = '';
+            currentPage = 1;
+            populateDistrictFilter('');
+            renderProjectTable();
+        }
+        
+        function exportToCSV() {
+            var headers = ['项目名称', '市', '区县', '项目状态', '创建时间'];
+            var rows = projectsData.map(function(project) {
+                return [
+                    '"' + project.name + '"',
+                    '"' + project.city + '"',
+                    '"' + project.district + '"',
+                    '"' + project.status + '"',
+                    '"' + project.createTime + '"'
+                ];
+            });
+            
+            var csvContent = headers.join(',') + '\n' + rows.join('\n');
+            var blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            var link = document.createElement('a');
+            var url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', '项目维护台账_' + new Date().toISOString().split('T')[0] + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function importFromCSV() {
+            document.getElementById('importFile').click();
+        }
+        
+        function handleFileSelect(event) {
+            var file = event.target.files[0];
+            if (!file) return;
+            
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    var buffer = e.target.result;
+                    var content = decodeCSVContent(buffer);
+                    
+                    if (content.charCodeAt(0) === 0xFEFF) {
+                        content = content.slice(1);
+                    }
+                    
+                    var lines = content.split('\n').filter(function(line) {
+                        return line.trim() !== '';
+                    });
+                    
+                    if (lines.length < 2) {
+                        alert('CSV文件内容无效，至少需要标题行和一行数据');
+                        return;
+                    }
+                    
+                    var headers = parseCSVLine(lines[0]);
+                    
+                    var nameIndex = headers.indexOf('项目名称');
+                    var cityIndex = headers.indexOf('市');
+                    var districtIndex = headers.indexOf('区县');
+                    var statusIndex = headers.indexOf('项目状态');
+                    var timeIndex = headers.indexOf('创建时间');
+                    
+                    if (nameIndex === -1 || cityIndex === -1 || districtIndex === -1) {
+                        alert('CSV文件缺少必要的字段：项目名称、市、区县');
+                        return;
+                    }
+                    
+                    var importedProjects = [];
+                    for (var i = 1; i < lines.length; i++) {
+                        var values = parseCSVLine(lines[i]);
+                        var project = {
+                            id: i,
+                            name: values[nameIndex] || '',
+                            city: values[cityIndex] || '',
+                            district: values[districtIndex] || '',
+                            status: values[statusIndex] || '合作对接',
+                            createTime: values[timeIndex] || new Date().toISOString().split('T')[0]
+                        };
+                        
+                        if (project.name && project.city && project.district) {
+                            importedProjects.push(project);
+                        }
+                    }
+                    
+                    projectsData = importedProjects;
+                    saveProjects();
+                    currentPage = 1;
+                    renderProjectTable();
+                    refreshProjectMarkers();
+                    updateHeaderStats();
+                    alert('成功导入 ' + importedProjects.length + ' 条项目数据');
+                } catch (error) {
+                    alert('导入CSV文件失败: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }
+        
+        function decodeCSVContent(buffer) {
+            var decoder = new TextDecoder('UTF-8');
+            var content = decoder.decode(buffer);
+            
+            if (content.includes('\uFFFD')) {
+                try {
+                    var gbkDecoder = new TextDecoder('GBK');
+                    content = gbkDecoder.decode(buffer);
+                } catch (e) {
+                    console.warn('GBK解码失败，使用UTF-8');
+                }
+            }
+            
+            if (content.charCodeAt(0) === 0xFEFF) {
+                content = content.slice(1);
+            }
+            
+            return content;
+        }
+        
+        function parseCSVLine(line) {
+            var values = [];
+            var currentValue = '';
+            var inQuotes = false;
+            
+            for (var i = 0; i < line.length; i++) {
+                var char = line[i];
+                
+                if (char === '"') {
+                    if (inQuotes && line[i + 1] === '"') {
+                        currentValue += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    values.push(currentValue.trim());
+                    currentValue = '';
+                } else {
+                    currentValue += char;
+                }
+            }
+            values.push(currentValue.trim());
+            
+            return values;
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case '合作对接': return 'yellow';
+                case '意向签订': return 'blue';
+                case '正式合约': return 'green';
+                default: return '';
+            }
+        }
+
+        function openProjectModal() {
+            document.getElementById('authInput').value = '';
+            document.getElementById('authError').style.display = 'none';
+            document.getElementById('authInput').type = 'password';
+            document.getElementById('authModal').classList.add('show');
+        }
+
+        function closeAuthModal() {
+            document.getElementById('authModal').classList.remove('show');
+        }
+
+        function toggleAuthVisibility() {
+            var input = document.getElementById('authInput');
+            var button = document.getElementById('toggleAuthVisibility');
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                button.textContent = '👁';
+            }
+        }
+
+        function confirmAuth() {
+            var AUTH_CODE = 'ljj01';
+            var input = document.getElementById('authInput').value.trim();
+            if (input === AUTH_CODE) {
+                closeAuthModal();
+                document.getElementById('projectModal').classList.add('show');
+                loadProjects();
+            } else {
+                document.getElementById('authError').style.display = 'block';
+            }
+        }
+
+        function closeProjectModal() {
+            document.getElementById('projectModal').classList.remove('show');
+        }
+
+        function openAddForm() {
+            document.getElementById('formTitle').textContent = '新增项目';
+            document.getElementById('formId').value = '';
+            document.getElementById('formName').value = '';
+            document.getElementById('formCity').value = '';
+            document.getElementById('formDistrict').innerHTML = '<option value="">请先选择市</option>';
+            document.getElementById('formStatus').value = '';
+            document.getElementById('formModal').classList.add('show');
+        }
+
+        function closeFormModal() {
+            document.getElementById('formModal').classList.remove('show');
+        }
+
+        function editProject(id) {
+            var project = projectsData.find(p => p.id === id);
+            if (project) {
+                document.getElementById('formTitle').textContent = '编辑项目';
+                document.getElementById('formId').value = project.id;
+                document.getElementById('formName').value = project.name;
+                document.getElementById('formCity').value = project.city;
+                populateDistrictSelect(project.city);
+                setTimeout(function() {
+                    document.getElementById('formDistrict').value = project.district;
+                }, 50);
+                document.getElementById('formStatus').value = project.status;
+                document.getElementById('formModal').classList.add('show');
+            }
+        }
+
+        function showDeleteConfirm(id) {
+            deleteProjectId = id;
+            document.getElementById('confirmModal').classList.add('show');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirmModal').classList.remove('show');
+            deleteProjectId = null;
+        }
+
+        function deleteProject() {
+            if (deleteProjectId !== null) {
+                projectsData = projectsData.filter(p => p.id !== deleteProjectId);
+                saveProjects();
+                renderProjectTable();
+                refreshProjectMarkers();
+                updateHeaderStats();
+                closeConfirmModal();
+            }
+        }
+
+        function saveProject(event) {
+            event.preventDefault();
+            
+            var id = document.getElementById('formId').value;
+            var project = {
+                name: document.getElementById('formName').value,
+                city: document.getElementById('formCity').value,
+                district: document.getElementById('formDistrict').value,
+                status: document.getElementById('formStatus').value,
+                createTime: new Date().toISOString().split('T')[0]
+            };
+
+            if (id) {
+                project.id = parseInt(id);
+                var index = projectsData.findIndex(p => p.id === project.id);
+                if (index !== -1) {
+                    project.createTime = projectsData[index].createTime;
+                    projectsData[index] = project;
+                }
+            } else {
+                project.id = projectsData.length > 0 ? Math.max(...projectsData.map(p => p.id)) + 1 : 1;
+                projectsData.push(project);
+            }
+
+            saveProjects();
+            renderProjectTable();
+            refreshProjectMarkers();
+            updateHeaderStats();
+            closeFormModal();
+        }
+
+        async function saveProjects() {
+            var data = {
+                projects: projectsData,
+                cities: citiesData,
+                statusOptions: ['合作对接', '意向签订', '正式合约']
+            };
+            
+            localStorage.setItem('projectsData', JSON.stringify(data));
+            
+            if (useNetlifyBlobs) {
+                try {
+                    await fetch('/api/projects', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data),
+                    });
+                    console.log('Data saved to Netlify Blobs');
+                } catch (error) {
+                    console.error('Failed to save to Netlify Blobs:', error);
+                    useNetlifyBlobs = false;
+                }
+            }
+        }
+
+        document.getElementById('legendPanel').addEventListener('click', openProjectModal);
+        document.getElementById('closeModal').addEventListener('click', closeProjectModal);
+        document.getElementById('addProjectBtn').addEventListener('click', openAddForm);
+        document.getElementById('closeFormModal').addEventListener('click', closeFormModal);
+        document.getElementById('cancelForm').addEventListener('click', closeFormModal);
+        document.getElementById('projectForm').addEventListener('submit', saveProject);
+        document.getElementById('closeConfirmModal').addEventListener('click', closeConfirmModal);
+        document.getElementById('cancelDelete').addEventListener('click', closeConfirmModal);
+        document.getElementById('confirmDelete').addEventListener('click', deleteProject);
+        document.getElementById('formCity').addEventListener('change', function(e) {
+            populateDistrictSelect(e.target.value);
+        });
+        document.getElementById('filterCity').addEventListener('change', function(e) {
+            populateDistrictFilter(e.target.value);
+            renderProjectTable();
+        });
+        document.getElementById('filterDistrict').addEventListener('change', applyFilter);
+        document.getElementById('filterStatus').addEventListener('change', applyFilter);
+        document.getElementById('resetFilter').addEventListener('click', resetFilter);
+        
+        document.getElementById('prevPage').addEventListener('click', prevPage);
+        document.getElementById('nextPage').addEventListener('click', nextPage);
+        document.getElementById('pageSizeSelect').addEventListener('change', changePageSize);
+        
+        document.getElementById('exportBtn').addEventListener('click', exportToCSV);
+        document.getElementById('importBtn').addEventListener('click', importFromCSV);
+        document.getElementById('importFile').addEventListener('change', handleFileSelect);
+        
+        document.getElementById('closeAuthModal').addEventListener('click', closeAuthModal);
+        document.getElementById('cancelAuth').addEventListener('click', closeAuthModal);
+        document.getElementById('confirmAuth').addEventListener('click', confirmAuth);
+        document.getElementById('toggleAuthVisibility').addEventListener('click', toggleAuthVisibility);
+        document.getElementById('authInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                confirmAuth();
+            }
+        });
+    </script>
+</body>
+</html>
