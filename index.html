@@ -1322,30 +1322,39 @@
             return centers[city] && centers[city][district] ? { lat: centers[city][district][0], lng: centers[city][district][1] } : null;
         }
 
-        function loadProjects() {
-            var saved = localStorage.getItem('projectsData');
-            if (saved) {
-                var data = JSON.parse(saved);
-                projectsData = data.projects || [];
-                citiesData = data.cities || {};
-                populateCitySelect();
-                populateCityFilter();
-                populateDistrictFilter();
-                renderProjectTable();
-            } else {
-                fetch('projects.json')
-                    .then(response => response.json())
-                    .then(data => {
-                        projectsData = data.projects;
-                        citiesData = data.cities;
-                        saveProjects();
-                        populateCitySelect();
-                        populateCityFilter();
-                        populateDistrictFilter();
-                        renderProjectTable();
-                    })
-                    .catch(error => console.error('加载项目数据失败:', error));
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+                if (response.ok) {
+                    const data = await response.json();
+                    projectsData = data.projects || [];
+                    citiesData = data.cities || {};
+                    useNetlifyBlobs = true;
+                    localStorage.setItem('projectsData', JSON.stringify({ projects: projectsData, cities: citiesData }));
+                    console.log('Loaded projects from Netlify Blobs');
+                } else {
+                    throw new Error('Netlify Blobs not available');
+                }
+            } catch (error) {
+                console.log('Falling back to localStorage for projects:', error.message);
+                useNetlifyBlobs = false;
+                var saved = localStorage.getItem('projectsData');
+                if (saved) {
+                    var data = JSON.parse(saved);
+                    projectsData = data.projects || [];
+                    citiesData = data.cities || {};
+                } else {
+                    const response = await fetch('projects.json');
+                    const data = await response.json();
+                    projectsData = data.projects;
+                    citiesData = data.cities;
+                    await saveProjects();
+                }
             }
+            populateCitySelect();
+            populateCityFilter();
+            populateDistrictFilter();
+            renderProjectTable();
         }
 
         function refreshProjectMarkers() {
