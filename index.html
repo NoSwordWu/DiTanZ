@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>浙江省地图 - 科技感</title>
+    <title>浙建降碳经营作战</title>
     <style>
         body { 
             margin: 0; 
@@ -380,6 +380,33 @@
             background: rgba(0, 255, 136, 0.2);
             color: #00ff88;
         }
+        .status-badge.gray {
+            background: rgba(100, 100, 100, 0.2);
+            color: #999999;
+        }
+        .evaluation-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .evaluation-badge.red {
+            background: rgba(255, 80, 80, 0.2);
+            color: #ff5050;
+        }
+        .evaluation-badge.orange {
+            background: rgba(255, 150, 50, 0.2);
+            color: #ff9632;
+        }
+        .evaluation-badge.blue {
+            background: rgba(0, 170, 255, 0.2);
+            color: #00aaff;
+        }
+        .evaluation-badge.gray {
+            background: rgba(100, 100, 100, 0.2);
+            color: #999999;
+        }
         .btn-edit,
         .btn-delete {
             padding: 4px 10px;
@@ -642,6 +669,8 @@
         .stat-card.intent .stat-value { color: #00aaff; text-shadow: 0 0 20px rgba(0, 170, 255, 0.8), 0 0 40px rgba(0, 120, 255, 0.5); }
         .stat-card.contract { --glow-color: #00ff88; }
         .stat-card.contract .stat-value { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.8), 0 0 40px rgba(0, 200, 100, 0.5); }
+        .stat-card.active { --glow-color: #00ff88; }
+        .stat-card.active .stat-value { color: #00ff88; text-shadow: 0 0 20px rgba(0, 255, 136, 0.8), 0 0 40px rgba(0, 200, 100, 0.5); }
         .frame-border {
             position: fixed;
             top: 0;
@@ -812,6 +841,10 @@
             <div class="stat-label">项目总数</div>
             <div class="stat-value" id="statTotal">0</div>
         </div>
+        <div class="stat-card active">
+            <div class="stat-label">有效项目</div>
+            <div class="stat-value" id="statActive">0</div>
+        </div>
         <div class="stat-card cooperation">
             <div class="stat-label">合作对接</div>
             <div class="stat-value" id="statCooperation">0</div>
@@ -878,6 +911,17 @@
                             <option value="合作对接">合作对接</option>
                             <option value="意向签订">意向签订</option>
                             <option value="正式合约">正式合约</option>
+                            <option value="其他">其他</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <label class="filter-label">项目评估</label>
+                        <select class="form-select filter-select" id="filterEvaluation">
+                            <option value="">全部评估</option>
+                            <option value="重点项目">重点项目</option>
+                            <option value="优质项目">优质项目</option>
+                            <option value="一般项目">一般项目</option>
+                            <option value="其他项目">其他项目</option>
                         </select>
                     </div>
                     <button class="btn-reset" id="resetFilter">重置筛选</button>
@@ -888,6 +932,7 @@
                             <th>项目名称</th>
                             <th>市</th>
                             <th>区县</th>
+                            <th>项目评估</th>
                             <th>项目状态</th>
                             <th>创建时间</th>
                             <th>操作</th>
@@ -935,12 +980,23 @@
                         </select>
                     </div>
                     <div class="form-group">
+                        <label class="form-label">项目评估</label>
+                        <select class="form-select" id="formEvaluation">
+                            <option value="">请选择评估</option>
+                            <option value="重点项目">重点项目</option>
+                            <option value="优质项目">优质项目</option>
+                            <option value="一般项目">一般项目</option>
+                            <option value="其他项目">其他项目</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">项目状态</label>
                         <select class="form-select" id="formStatus" required>
                             <option value="">请选择状态</option>
                             <option value="合作对接">合作对接</option>
                             <option value="意向签订">意向签订</option>
                             <option value="正式合约">正式合约</option>
+                            <option value="其他">其他</option>
                         </select>
                     </div>
                     <div class="form-actions">
@@ -1026,6 +1082,17 @@
                     citiesData = data.cities || {};
                     useNetlifyBlobs = true;
                     console.log('Loaded data from Netlify Blobs');
+                    
+                    if (Object.keys(citiesData).length === 0) {
+                        console.log('Cities data is empty, loading from initial JSON');
+                        const initResponse = await fetch('projects.json');
+                        const initData = await initResponse.json();
+                        citiesData = initData.cities;
+                        if (projectsData.length === 0) {
+                            projectsData = initData.projects;
+                        }
+                        await saveProjects();
+                    }
                 } else {
                     throw new Error('Netlify Blobs not available');
                 }
@@ -1037,6 +1104,11 @@
                     var data = JSON.parse(saved);
                     projectsData = data.projects || [];
                     citiesData = data.cities || {};
+                    if (Object.keys(citiesData).length === 0) {
+                        const initResponse = await fetch('projects.json');
+                        const initData = await initResponse.json();
+                        citiesData = initData.cities;
+                    }
                 } else {
                     const response = await fetch('projects.json');
                     const data = await response.json();
@@ -1158,15 +1230,27 @@
                 var status = project.status;
                 
                 if (!stats[city]) {
-                    stats[city] = { total: 0, districts: {}, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0 } };
+                    stats[city] = { total: 0, active: 0, districts: {}, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0, '其他': 0 } };
                 }
                 stats[city].total++;
+                if (status === '合作对接' || status === '意向签订' || status === '正式合约') {
+                    stats[city].active++;
+                }
+                if (!stats[city].status[status]) {
+                    stats[city].status[status] = 0;
+                }
                 stats[city].status[status]++;
                 
                 if (!stats[city].districts[district]) {
-                    stats[city].districts[district] = { total: 0, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0 } };
+                    stats[city].districts[district] = { total: 0, active: 0, status: { '合作对接': 0, '意向签订': 0, '正式合约': 0, '其他': 0 } };
                 }
                 stats[city].districts[district].total++;
+                if (status === '合作对接' || status === '意向签订' || status === '正式合约') {
+                    stats[city].districts[district].active++;
+                }
+                if (!stats[city].districts[district].status[status]) {
+                    stats[city].districts[district].status[status] = 0;
+                }
                 stats[city].districts[district].status[status]++;
             });
             return stats;
@@ -1177,16 +1261,18 @@
             var cooperation = 0;
             var intent = 0;
             var contract = 0;
+            var active = 0;
             
             projectsData.forEach(function(project) {
                 switch(project.status) {
-                    case '合作对接': cooperation++; break;
-                    case '意向签订': intent++; break;
-                    case '正式合约': contract++; break;
+                    case '合作对接': cooperation++; active++; break;
+                    case '意向签订': intent++; active++; break;
+                    case '正式合约': contract++; active++; break;
                 }
             });
             
             document.getElementById('statTotal').textContent = total;
+            document.getElementById('statActive').textContent = active;
             document.getElementById('statCooperation').textContent = cooperation;
             document.getElementById('statIntent').textContent = intent;
             document.getElementById('statContract').textContent = contract;
@@ -1233,6 +1319,8 @@
                             
                             if (hasProjects) {
                                 var tooltipContent = `<div style="font-weight:bold;margin-bottom:5px;">${cityName}项目统计</div>
+                                <div style="color:#ffffff;">项目总数: ${cityStats.total}</div>
+                                <div style="color:#00ff88;">有效项目: ${cityStats.active}</div>
                                 <div style="color:#ffcc00;">合作对接: ${cityStats.status['合作对接']}</div>
                                 <div style="color:#00aaff;">意向签订: ${cityStats.status['意向签订']}</div>
                                 <div style="color:#00ff88;">正式合约: ${cityStats.status['正式合约']}</div>`;
@@ -1288,6 +1376,8 @@
                             districtProjectMarkers.push(marker);
                             
                             var tooltipContent = `<div style="font-weight:bold;margin-bottom:5px;">${city} - ${district}</div>
+                                <div style="color:#ffffff;">项目总数: ${districtStats.total}</div>
+                                <div style="color:#00ff88;">有效项目: ${districtStats.active}</div>
                                 <div style="color:#ffcc00;">合作对接: ${districtStats.status['合作对接']}</div>
                                 <div style="color:#00aaff;">意向签订: ${districtStats.status['意向签订']}</div>
                                 <div style="color:#00ff88;">正式合约: ${districtStats.status['正式合约']}</div>`;
@@ -1330,8 +1420,15 @@
                     projectsData = data.projects || [];
                     citiesData = data.cities || {};
                     useNetlifyBlobs = true;
-                    localStorage.setItem('projectsData', JSON.stringify({ projects: projectsData, cities: citiesData }));
                     console.log('Loaded projects from Netlify Blobs');
+                    
+                    if (Object.keys(citiesData).length === 0) {
+                        console.log('Cities data is empty, loading from initial JSON');
+                        const initResponse = await fetch('projects.json');
+                        const initData = await initResponse.json();
+                        citiesData = initData.cities;
+                    }
+                    localStorage.setItem('projectsData', JSON.stringify({ projects: projectsData, cities: citiesData }));
                 } else {
                     throw new Error('Netlify Blobs not available');
                 }
@@ -1343,6 +1440,11 @@
                     var data = JSON.parse(saved);
                     projectsData = data.projects || [];
                     citiesData = data.cities || {};
+                    if (Object.keys(citiesData).length === 0) {
+                        const initResponse = await fetch('projects.json');
+                        const initData = await initResponse.json();
+                        citiesData = initData.cities;
+                    }
                 } else {
                     const response = await fetch('projects.json');
                     const data = await response.json();
@@ -1544,12 +1646,14 @@
             var filterCity = document.getElementById('filterCity').value;
             var filterDistrict = document.getElementById('filterDistrict').value;
             var filterStatus = document.getElementById('filterStatus').value;
+            var filterEvaluation = document.getElementById('filterEvaluation').value;
             
             var filteredProjects = projectsData.filter(function(project) {
                 var matchCity = !filterCity || project.city === filterCity;
                 var matchDistrict = !filterDistrict || project.district === filterDistrict;
                 var matchStatus = !filterStatus || project.status === filterStatus;
-                return matchCity && matchDistrict && matchStatus;
+                var matchEvaluation = !filterEvaluation || project.evaluation === filterEvaluation;
+                return matchCity && matchDistrict && matchStatus && matchEvaluation;
             });
             
             var totalPages = Math.ceil(filteredProjects.length / pageSize);
@@ -1563,6 +1667,7 @@
                     <td>${project.name}</td>
                     <td>${project.city}</td>
                     <td>${project.district}</td>
+                    <td><span class="evaluation-badge ${getEvaluationClass(project.evaluation)}">${project.evaluation || '-'}</span></td>
                     <td><span class="status-badge ${getStatusClass(project.status)}">${project.status}</span></td>
                     <td>${project.createTime}</td>
                     <td>
@@ -1622,18 +1727,20 @@
             document.getElementById('filterCity').value = '';
             document.getElementById('filterDistrict').value = '';
             document.getElementById('filterStatus').value = '';
+            document.getElementById('filterEvaluation').value = '';
             currentPage = 1;
             populateDistrictFilter('');
             renderProjectTable();
         }
         
         function exportToCSV() {
-            var headers = ['项目名称', '市', '区县', '项目状态', '创建时间'];
+            var headers = ['项目名称', '市', '区县', '项目评估', '项目状态', '创建时间'];
             var rows = projectsData.map(function(project) {
                 return [
                     '"' + project.name + '"',
                     '"' + project.city + '"',
                     '"' + project.district + '"',
+                    '"' + (project.evaluation || '') + '"',
                     '"' + project.status + '"',
                     '"' + project.createTime + '"'
                 ];
@@ -1683,6 +1790,7 @@
                     var nameIndex = headers.indexOf('项目名称');
                     var cityIndex = headers.indexOf('市');
                     var districtIndex = headers.indexOf('区县');
+                    var evaluationIndex = headers.indexOf('项目评估');
                     var statusIndex = headers.indexOf('项目状态');
                     var timeIndex = headers.indexOf('创建时间');
                     
@@ -1699,6 +1807,7 @@
                             name: values[nameIndex] || '',
                             city: values[cityIndex] || '',
                             district: values[districtIndex] || '',
+                            evaluation: values[evaluationIndex] || '',
                             status: values[statusIndex] || '合作对接',
                             createTime: values[timeIndex] || new Date().toISOString().split('T')[0]
                         };
@@ -1775,6 +1884,17 @@
                 case '合作对接': return 'yellow';
                 case '意向签订': return 'blue';
                 case '正式合约': return 'green';
+                case '其他': return 'gray';
+                default: return '';
+            }
+        }
+
+        function getEvaluationClass(evaluation) {
+            switch(evaluation) {
+                case '重点项目': return 'red';
+                case '优质项目': return 'orange';
+                case '一般项目': return 'blue';
+                case '其他项目': return 'gray';
                 default: return '';
             }
         }
@@ -1843,6 +1963,7 @@
                 setTimeout(function() {
                     document.getElementById('formDistrict').value = project.district;
                 }, 50);
+                document.getElementById('formEvaluation').value = project.evaluation || '';
                 document.getElementById('formStatus').value = project.status;
                 document.getElementById('formModal').classList.add('show');
             }
@@ -1877,6 +1998,7 @@
                 name: document.getElementById('formName').value,
                 city: document.getElementById('formCity').value,
                 district: document.getElementById('formDistrict').value,
+                evaluation: document.getElementById('formEvaluation').value || '',
                 status: document.getElementById('formStatus').value,
                 createTime: new Date().toISOString().split('T')[0]
             };
@@ -1904,7 +2026,8 @@
             var data = {
                 projects: projectsData,
                 cities: citiesData,
-                statusOptions: ['合作对接', '意向签订', '正式合约']
+                statusOptions: ['合作对接', '意向签订', '正式合约', '其他'],
+                evaluationOptions: ['重点项目', '优质项目', '一般项目', '其他项目']
             };
             
             localStorage.setItem('projectsData', JSON.stringify(data));
@@ -1944,6 +2067,7 @@
         });
         document.getElementById('filterDistrict').addEventListener('change', applyFilter);
         document.getElementById('filterStatus').addEventListener('change', applyFilter);
+        document.getElementById('filterEvaluation').addEventListener('change', applyFilter);
         document.getElementById('resetFilter').addEventListener('click', resetFilter);
         
         document.getElementById('prevPage').addEventListener('click', prevPage);
